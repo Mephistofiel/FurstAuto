@@ -10,15 +10,22 @@ jobs:
     steps:
       - name: checkout repository
         uses: actions/checkout@v4.1.7
+
       - name: setup Python
         uses: actions/setup-python@v5.2.0
         with:
           python-version: "3.12.5"
+
       - name: install chrome
         run: |
           powershell -command "Invoke-WebRequest -Uri https://dl.google.com/chrome/install/latest/chrome_installer.exe -OutFile chrome_installer.exe"
           powershell -command "Start-Process chrome_installer.exe -ArgumentList '/silent', '/install' -NoNewWindow -Wait"
+
       - name: install dependencies
         run: pip install -r requirements.txt
+
+      - name: set PYTHONPATH
+        run: echo PYTHONPATH=${{ github.workspace }} >> $GITHUB_ENV
+
       - name: run tests
         run: pytest
