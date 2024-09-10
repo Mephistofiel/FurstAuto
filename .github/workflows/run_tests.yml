@@ -35,4 +35,4 @@ jobs:
           dir
 
       - name: Run tests
-        run: pytest
+        run: pytest -v -s -m text
