@@ -28,6 +28,12 @@ jobs:
           powershell -Command "Invoke-WebRequest -Uri https://dl.google.com/chrome/install/latest/chrome_installer.exe -OutFile chrome_installer.exe"
           powershell -Command "Start-Process chrome_installer.exe -ArgumentList '/silent', '/install' -NoNewWindow -Wait"
 
+      - name: Install OpenJDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin' # Можно выбрать другую дистрибуцию, если нужно
+          java-version: '17'      # Укажите необходимую версию Java
+
       - name: Install Scoop
         shell: pwsh
         run: |
@@ -41,16 +47,13 @@ jobs:
           echo "Adding Scoop to PATH: $scoop_path"
           echo "PATH=$env:PATH;$scoop_path" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-      - name: Add JDK
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'microsoft'
-          java-version: '17'
-
       - name: Install Allure
         shell: pwsh
         run: |
           scoop install allure
+
+      - name: Verify Allure Installation
+        run: allure --version
 
       - name: Install dependencies
         run: pip install -r requirements.txt
