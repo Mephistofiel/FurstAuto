@@ -1,19 +1,15 @@
-name: Automated tests
+name: Automated Tests with Allure and GitHub Pages
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
-    inputs:
-      deployment_target:
-        description: Choose target
-        required: true
-        type: choice
-        options:
-          - first_test
 
 jobs:
   test:
+    name: Run Tests
     runs-on: windows-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4.1.7
@@ -31,8 +27,8 @@ jobs:
       - name: Install OpenJDK
         uses: actions/setup-java@v3
         with:
-          distribution: 'temurin' # Можно выбрать другую дистрибуцию, если нужно
-          java-version: '17'      # Укажите необходимую версию Java
+          distribution: 'temurin'
+          java-version: '17'
 
       - name: Install Scoop
         shell: pwsh
@@ -44,13 +40,11 @@ jobs:
         shell: pwsh
         run: |
           $scoop_path = "$env:USERPROFILE\scoop\shims"
-          echo "Adding Scoop to PATH: $scoop_path"
           echo "PATH=$env:PATH;$scoop_path" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Install Allure
         shell: pwsh
-        run: |
-          scoop install allure
+        run: scoop install allure
 
       - name: Verify Allure Installation
         run: allure --version
@@ -58,34 +52,90 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Set PYTHONPATH
-        run: |
-          $env:PYTHONPATH = "${{ github.workspace }}"
-          echo "PYTHONPATH=$env:PYTHONPATH" >> $GITHUB_ENV
-
-      - name: Debug PYTHONPATH
-        run: |
-          echo "PYTHONPATH: $env:PYTHONPATH"
-          dir
-
       - name: Run tests with pytest
-        run: |
-          pytest -v -s -m text --alluredir=allure-results
-        if: "github.event.inputs.deployment_target == 'first_test'"
-
-      - name: Generate Allure Report
-        shell: pwsh
-        run: |
-          allure generate allure-results --clean -o allure-report
-
-      - name: Upload Allure Report
-        uses: actions/upload-artifact@v3
-        with:
-          name: allure-report
-          path: allure-report
+        run: pytest -v -s -m text --alluredir=allure-results
 
       - name: Upload Allure Results
         uses: actions/upload-artifact@v3
         with:
           name: allure-results
           path: allure-results
+          retention-days: 7
+
+  generate-report:
+    name: Generate Allure Report
+    runs-on: windows-latest
+    needs: test
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.7
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Scoop
+        shell: pwsh
+        run: |
+          Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+          Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://get.scoop.sh')
+
+      - name: Add Scoop to PATH
+        shell: pwsh
+        run: |
+          $scoop_path = "$env:USERPROFILE\scoop\shims"
+          echo "PATH=$env:PATH;$scoop_path" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Install Allure
+        shell: pwsh
+        run: scoop install allure
+
+      - name: Verify Allure Installation
+        run: allure --version
+
+      - name: Download Allure Results
+        uses: actions/download-artifact@v3
+        with:
+          name: allure-results
+
+      - name: Generate Allure Report
+        run: allure generate allure-results --clean -o allure-report
+
+      - name: Upload Allure Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: allure-report
+          path: allure-report
+          retention-days: 7
+
+  publish-report:
+    name: Publish Allure Report to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: generate-report
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.7
+
+      - name: Download Allure Report
+        uses: actions/download-artifact@v3
+        with:
+          name: allure-report
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: allure-report
+          keep_files: false
+
+      - name: Cleanup Old Reports
+        run: |
+          # GitHub Pages автоматически хранит только актуальный отчет, дополнительных действий не требуется
+          echo "Reports are updated. Old reports are overwritten."
+
+      - name: Set Page Expiration
+        run: |
+          # GitHub Pages не поддерживает автоматическое удаление файлов через настройку. Отчеты перезаписываются при каждом деплое.
+          echo "Allure reports are kept up-to-date and overwritten with each deploy."
