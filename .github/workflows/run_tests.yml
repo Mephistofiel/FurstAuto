@@ -1,7 +1,14 @@
 name: Automated tests
 
 on:
-  push
+  workflow_dispatch:
+    inputs:
+      deployment_target:
+        description: Choose target
+        required: true
+        type: choice
+        options:
+          - first_test
 
 jobs:
   test:
@@ -21,6 +28,17 @@ jobs:
           powershell -command "Invoke-WebRequest -Uri https://dl.google.com/chrome/install/latest/chrome_installer.exe -OutFile chrome_installer.exe"
           powershell -command "Start-Process chrome_installer.exe -ArgumentList '/silent', '/install' -NoNewWindow -Wait"
 
+      - name: Install Scoop
+        shell: pwsh
+        run: |
+          Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+          irm get.scoop.sh | iex
+
+      - name: Install Allure
+        shell: pwsh
+        run: |
+          scoop install allure
+
       - name: Install dependencies
         run: pip install -r requirements.txt
 
@@ -34,5 +52,24 @@ jobs:
           echo "PYTHONPATH: $env:PYTHONPATH"
           dir
 
-      - name: Run tests
-        run: pytest -v -s -m text
+      - name: Run tests with pytest
+        run: |
+          pytest -v -s -m text --alluredir=allure-results
+        if: "github.event.inputs.deployment_target == 'first_test'"
+
+      - name: Generate Allure Report
+        shell: pwsh
+        run: |
+          allure generate allure-results --clean -o allure-report
+
+      - name: Upload Allure Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: allure-report
+          path: allure-report
+
+      - name: Upload Allure Results
+        uses: actions/upload-artifact@v3
+        with:
+          name: allure-results
+          path: allure-results
