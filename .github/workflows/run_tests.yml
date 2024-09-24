@@ -49,13 +49,13 @@ jobs:
       - name: Verify Allure Installation
         run: allure --version
 
-      - name: Setup ChromeDriver
-        uses: actions/setup-chromedriver@v3
-        with:
-          chrome-version: 'latest'  # Автоматически устанавливает совместимую версию
-
       - name: Install dependencies
         run: pip install -r requirements.txt
+
+      - name: Verify Public URL Accessibility
+        run: |
+          powershell -Command "try { Invoke-WebRequest -Uri 'https://ваш-публичный-репозиторий-с-html-файлом.html' -UseBasicParsing -ErrorAction Stop } catch { exit 1 }"
+        # Замените 'https://ваш-публичный-репозиторий-с-html-файлом.html' на ваш реальный URL
 
       - name: Run tests with pytest
         run: pytest -v -s -m text --alluredir=allure-results
@@ -134,7 +134,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: allure-report
 
-      - name: Cleanup Old Reports
-        run: |
-          # GitHub Pages автоматически хранит только актуальный отчет, дополнительных действий не требуется
-          echo "Reports are updated. Old reports are overwritten."
+      # GitHub Pages автоматически перезаписывает старые отчёты при каждом деплое, дополнительная очистка не требуется
