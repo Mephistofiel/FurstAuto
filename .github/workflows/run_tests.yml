@@ -50,6 +50,9 @@ jobs:
       - name: Run tests with pytest
         run: pytest -v -s -m text --alluredir=allure-results
 
+      - name: List Allure Results
+        run: ls -R allure-results
+
       - name: Upload Allure Results
         uses: actions/upload-artifact@v3
         with:
@@ -80,8 +83,13 @@ jobs:
         with:
           name: allure-results
 
+      - name: List Allure Results
+        run: ls -R allure-results
+
       - name: Generate Allure Report
-        run: allure generate allure-results --clean -o allure-report
+        run: |
+          set -eux
+          allure generate allure-results --clean -o allure-report
 
       - name: List Allure Report Files
         run: ls -R allure-report
