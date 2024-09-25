@@ -54,7 +54,7 @@ jobs:
 
       - name: Verify Public URL Accessibility
         run: |
-          powershell -Command "try { Invoke-WebRequest -Uri 'https://ваш-публичный-репозиторий-с-html-файлом.html' -UseBasicParsing -ErrorAction Stop } catch { exit 1 }"
+          powershell -Command "try { Invoke-WebRequest -Uri 'https://github.com/Mephistofiel/HTML/blob/master/Mostbet/(MB)%20frozen_account_RU.html' -UseBasicParsing -ErrorAction Stop } catch { exit 1 }"
         # Замените 'https://ваш-публичный-репозиторий-с-html-файлом.html' на ваш реальный URL
 
       - name: Run tests with pytest
