@@ -111,7 +111,7 @@
                             },
                             "type": "link",
                             "expected": [
-                                "https://mostbet-ru30.c/?utm_medium=email&utm_source=system&content=logo&utm_campaign=frozen_account",
+                                "https://mostbet-ru30.com/?utm_medium=email&utm_source=system&content=logo&utm_campaign=frozen_account",
                                 "https://mostbet-ru30.com/profile/refill?utm_medium=email&utm_source=system&content=refill&utm_campaign=frozen_account",
                                 "https://mostbet-ru30.com/pregame?utm_medium=email&utm_source=system&content=pregame&utm_campaign=frozen_account",
                                 "https://mostbet-ru30.com/live?utm_medium=email&utm_source=system&content=live&utm_campaign=frozen_account",

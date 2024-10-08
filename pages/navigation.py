@@ -1,7 +1,6 @@
 import allure
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from pages.base_page import BasePage
 
@@ -9,17 +8,6 @@ class NavigationPage(BasePage):
     def __init__(self, browser, json_file, url=None):
         super().__init__(browser, url)
         self.json_data = self.load_json(json_file)
-
-
-    def get_content_by_id(self, content_id):
-        """Извлекает контент из JSON по заданному ID."""
-        # Предполагается, что content_id соответствует ключам в JSON
-        # Например, "MB.system.frozen_account.ru"
-        keys = content_id.split(".")
-        data = self.json_data
-        for key in keys:
-            data = data.get(key, {})
-        return data.get('content', [])
 
     def navigate_links_by_id(self, content_id):
         """Переходит по ссылкам, указанным в JSON для заданного content_id."""
@@ -76,72 +64,86 @@ class NavigationPage(BasePage):
                 if actual_href.startswith('mailto:'):
                     # Проверяем только наличие корректного href для mailto-ссылок
                     if actual_href != expected_url:
-                        raise AssertionError(f"Фактическая ссылка '{actual_href}' не соответствует ожидаемой '{expected_url}'.")
+                        raise AssertionError(
+                            f"Фактическая ссылка '{actual_href}' не соответствует ожидаемой '{expected_url}'."
+                        )
                     continue  # Пропускаем навигацию по mailto ссылкам
 
-                self.navigate_and_check(element, expected_url)
+                # Создаём отдельный шаг для каждого элемента
+                self.navigate_and_check(element, expected_url, selector_value, index)
 
-    @allure.step("Переход по ссылке из элемента и проверка загрузки страницы")
-    def step_navigate_and_check(self, element, expected_url):
-        """Кликает по ссылке, проверяет загрузку страницы и отсутствие ошибок."""
+    @allure.step("Переход по ссылке из элемента '{selector}[{index}]' и проверка загрузки страницы")
+    def navigate_and_check(self, element, expected_url, selector, index):
+        """Кликает по ссылке, проверяет загрузку страницы, отсутствие ошибок и делает скриншот."""
         original_window = self.browser.current_window_handle
         opened_new_window = False
 
         try:
-            # Ожидаем, что элемент будет кликабельным, затем кликаем
-            WebDriverWait(self.browser, 10).until(EC.element_to_be_clickable(element))
-            element.click()
+            with allure.step("Клик по элементу"):
+                element.click()
 
-            # Проверяем, открылось ли новое окно или вкладка
-            WebDriverWait(self.browser, 5).until(
-                lambda driver: len(driver.window_handles) > 1
-            )
-            if len(self.browser.window_handles) > 1:
-                new_window = [window for window in self.browser.window_handles if window != original_window][0]
-                self.browser.switch_to.window(new_window)
-                opened_new_window = True
-            else:
-                # Ссылка открылась в том же окне
-                pass
+            with allure.step("Проверка открытия нового окна или изменения URL"):
+                WebDriverWait(self.browser, 30).until(
+                    lambda driver: len(driver.window_handles) > 1 or driver.current_url != self.url
+                )
+                if len(self.browser.window_handles) > 1:
+                    new_window = [window for window in self.browser.window_handles if window != original_window][0]
+                    self.browser.switch_to.window(new_window)
+                    opened_new_window = True
 
-            # Ожидаем загрузки новой страницы
-            self.wait_for_page_load()
+            with allure.step("Ожидание полной загрузки страницы"):
+                self.wait_for_page_load()
 
-            # Получаем фактический URL после перехода
-            actual_url = self.browser.current_url
+            with allure.step("Проверка отсутствия ошибок на странице"):
+                self.check_no_errors_on_page()
 
-            # Делаем скриншот страницы
-            self.attach_screenshot(name="Скриншот страницы")
-
-            # Проверяем, что фактический URL соответствует ожидаемому
-            if expected_url and actual_url != expected_url:
+            with allure.step("Получение фактического URL и сравнение с ожидаемым"):
+                actual_url = self.browser.current_url
                 allure.attach(actual_url, name="Фактический URL", attachment_type=allure.attachment_type.TEXT)
                 allure.attach(expected_url, name="Ожидаемый URL", attachment_type=allure.attachment_type.TEXT)
-                raise AssertionError(f"Фактический URL '{actual_url}' не соответствует ожидаемому '{expected_url}'.")
+                if expected_url and actual_url != expected_url:
+                    raise AssertionError(
+                        f"Фактический URL '{actual_url}' не соответствует ожидаемому '{expected_url}'."
+                    )
 
-            # Проверяем отсутствие ошибок на странице
-            self.check_no_errors_on_page()
+            with allure.step("Делаем скриншот страницы"):
+                self.attach_screenshot(name="Скриншот страницы")
 
         except TimeoutException:
-            allure.attach(self.browser.get_screenshot_as_png(), name="Скриншот ошибки", attachment_type=allure.attachment_type.PNG)
-            raise AssertionError("Страница не загрузилась за отведенное время.")
+            self.attach_screenshot(name="Скриншот ошибки")
+            raise AssertionError("Страница не загрузилась за отведённое время.")
+
+        except Exception as e:
+            self.attach_screenshot(name="Скриншот ошибки")
+            raise AssertionError(f"Ошибка при переходе по ссылке: {e}")
 
         finally:
-            # Закрываем новое окно и возвращаемся к исходному
-            if opened_new_window:
-                self.browser.close()
-                self.browser.switch_to.window(original_window)
+            with allure.step("Возврат к исходному окну"):
+                if opened_new_window:
+                    self.browser.close()
+                    self.browser.switch_to.window(original_window)
+                else:
+                    # Если ссылка открылась в том же окне, возвращаемся назад
+                    self.browser.back()
 
-    def wait_for_page_load(self, timeout=10):
+    def wait_for_page_load(self, timeout=30):
         """Ожидает полной загрузки страницы."""
         WebDriverWait(self.browser, timeout).until(
             lambda driver: driver.execute_script('return document.readyState') == 'complete'
         )
 
     def check_no_errors_on_page(self):
-        """Проверяет отсутствие ошибок на странице по наличию определенных слов."""
+        """Проверяет отсутствие ошибок на странице по наличию определённых слов."""
         body_text = self.browser.find_element(By.TAG_NAME, 'body').text.lower()
         error_indicators = ['404', 'not found', '500', 'error']
         if any(error in body_text for error in error_indicators):
             self.attach_screenshot(name="Скриншот ошибки на странице")
             raise AssertionError("На странице обнаружена ошибка.")
+
+    def attach_screenshot(self, name="Скриншот"):
+        """Прикрепляет скриншот к отчёту Allure."""
+        allure.attach(
+            self.browser.get_screenshot_as_png(),
+            name=name,
+            attachment_type=allure.attachment_type.PNG
+        )

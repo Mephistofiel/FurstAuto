@@ -55,20 +55,27 @@ class ImagesPage(BasePage):
                 else:
                     current_expected_src = expected_src
 
-                self.step_check_image_step(
+                self.check_image_step(
                     f"{selector_value}[{expected_index}]",
                     actual_src,
-                    current_expected_src
+                    current_expected_src,
+                    element  # передаем элемент изображения
                 )
 
                 expected_index += 1
 
     @allure.step("Проверка src для изображения '{selector}'")
-    def step_check_image_step(self, selector, actual_src, expected_src):
+    def check_image_step(self, selector, actual_src, expected_src, element):
         """Шаг проверки src изображения."""
         allure.attach(actual_src, name="Фактический src", attachment_type=allure.attachment_type.TEXT)
         allure.attach(expected_src, name="Ожидаемый src", attachment_type=allure.attachment_type.TEXT)
+
+        # Делаем скриншот элемента изображения
+        image_screenshot = element.screenshot_as_png
+        allure.attach(image_screenshot, name="Скриншот изображения", attachment_type=allure.attachment_type.PNG)
+
         if actual_src != expected_src:
             diff = '\n'.join(difflib.ndiff([expected_src], [actual_src]))
             allure.attach(diff, name="Отличия", attachment_type=allure.attachment_type.TEXT)
             raise AssertionError(f"src изображения не совпадает для элемента '{selector}'.")
+
